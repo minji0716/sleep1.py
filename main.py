@@ -72,14 +72,18 @@ st.markdown("""
 
 
 # ─────────────────────────────────────────────
+# 파일명 상수 (영문으로 rename 후 사용)
+# ─────────────────────────────────────────────
+FILE_SLEEP = "youth_sleep_health.xlsx"
+FILE_LIFE  = "essential_time.xlsx"
+
+
+# ─────────────────────────────────────────────
 # 데이터 로드
 # ─────────────────────────────────────────────
 @st.cache_data
 def load_sleep_data():
-    df = pd.read_excel(
-        "청소년+평균수면시간+및+주관적+건강인지율_20260611112856_분석(2007_대비_증감).xlsx",
-        sheet_name="데이터", header=[0, 1],
-    )
+    df = pd.read_excel(FILE_SLEEP, sheet_name="데이터", header=[0, 1])
     df.columns = ["시점", "수면_전체", "수면_남", "수면_여",
                   "건강인지_전체", "건강인지_남", "건강인지_여"]
     df = df[df["시점"] != "시점"].copy()
@@ -93,10 +97,7 @@ def load_sleep_data():
 
 @st.cache_data
 def load_lifetime_data():
-    raw = pd.read_excel(
-        "필수생활시간_20260611113006.xlsx",
-        sheet_name="데이터", header=None,
-    )
+    raw = pd.read_excel(FILE_LIFE, sheet_name="데이터", header=None)
 
     def hhmm(val):
         if pd.isna(val) or val == "-":
@@ -107,10 +108,10 @@ def load_lifetime_data():
             return int(h) * 60 + int(m)
         return None
 
-    years    = ["1999", "2004", "2009", "2014", "2019", "2024"]
-    row_map  = {3: "필수생활시간", 4: "수면", 5: "식사및간식",
-                8: "개인건강관리", 9: "개인위생및외모관리"}
-    records  = []
+    years   = ["1999", "2004", "2009", "2014", "2019", "2024"]
+    row_map = {3: "필수생활시간", 4: "수면", 5: "식사및간식",
+               8: "개인건강관리",  9: "개인위생및외모관리"}
+    records = []
     for i, yr in enumerate(years):
         base = 2 + i * 12
         r = {"연도": int(yr)}
@@ -160,10 +161,10 @@ with st.sidebar:
 
     elif page == "⏰ 필수생활시간":
         st.markdown("### 🔍 상세 필터")
-        g_raw    = st.selectbox("성별", ["전체(계)", "남자", "여자"])
-        g_key    = {"전체(계)": "계", "남자": "남", "여자": "여"}[g_raw]
-        daytype  = st.selectbox("요일 유형", ["요일평균", "평일", "토요일", "일요일"])
-        dt_key   = {"요일평균": "계", "평일": "평일", "토요일": "토요일", "일요일": "일요일"}[daytype]
+        g_raw   = st.selectbox("성별", ["전체(계)", "남자", "여자"])
+        g_key   = {"전체(계)": "계", "남자": "남", "여자": "여"}[g_raw]
+        daytype = st.selectbox("요일 유형", ["요일평균", "평일", "토요일", "일요일"])
+        dt_key  = {"요일평균": "계", "평일": "평일", "토요일": "토요일", "일요일": "일요일"}[daytype]
 
     st.markdown("---")
     st.markdown(
@@ -187,20 +188,19 @@ if page == "🏠 전체 요약":
     </div>
     """, unsafe_allow_html=True)
 
-    # ── KPI ──
     latest_s = sleep_df[sleep_df["시점"] == sleep_df["시점"].max()].iloc[0]
-    latest_l = life_df[life_df["연도"] == life_df["연도"].max()].iloc[0]
-    first_l  = life_df[life_df["연도"] == life_df["연도"].min()].iloc[0]
+    latest_l = life_df.iloc[-1]
+    first_l  = life_df.iloc[0]
 
-    c1, c2, c3, c4 = st.columns(4)
     sv  = float(latest_s["수면_전체"])
-    hv  = float(latest_s["건강인지_전체"]) if not pd.isna(latest_s["건강인지_전체"]) else 0
+    hv  = float(latest_s["건강인지_전체"]) if not pd.isna(latest_s["건강인지_전체"]) else 0.0
     slv = int(latest_l["수면_계"])
     lv  = int(latest_l["필수생활시간_계"])
 
     def delta_cls(v):
         return "kpi-pos" if v >= 0 else "kpi-neg"
 
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.markdown(f"""<div class="kpi-card">
             <div class="kpi-label">수면 증감 (전체 최신)</div>
@@ -229,7 +229,6 @@ if page == "🏠 전체 요약":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── 차트 2열 ──
     ca, cb = st.columns(2)
     with ca:
         st.markdown('<div class="section-header">📉 청소년 수면시간 증감 추이</div>', unsafe_allow_html=True)
@@ -245,7 +244,6 @@ if page == "🏠 전체 요약":
         st.area_chart(h_chart, use_container_width=True, height=260)
         st.markdown('<div class="insight-box">🔍 2015년까지 꾸준히 상승 후 하락 반전. 여학생은 2021년부터 기준치(0) 이하 진입.</div>', unsafe_allow_html=True)
 
-    # ── 생활시간 바 ──
     st.markdown('<div class="section-header">⏱️ 서울시민 필수생활시간 구성 변화 (1999→2024, 분)</div>', unsafe_allow_html=True)
     bar_df = life_df[["연도", "수면_계", "식사및간식_계", "개인위생및외모관리_계"]].set_index("연도")
     bar_df.columns = ["수면", "식사 및 간식", "개인위생 및 외모"]
@@ -275,7 +273,6 @@ elif page == "🌙 수면 & 건강인지율":
         "여학생": ("수면_여",    "건강인지_여"),
     }
 
-    # ── 수면 차트 ──
     st.markdown('<div class="section-header">📊 주중 평균 수면시간 증감 (시간)</div>', unsafe_allow_html=True)
     st.markdown(f'<span class="tag">2007 기준 = 0</span> <span class="tag">선택: {year_range[0]}~{year_range[1]}</span>', unsafe_allow_html=True)
 
@@ -289,7 +286,7 @@ elif page == "🌙 수면 & 건강인지율":
         scol = g_map[g][0]
         vals = filtered[scol].dropna()
         v    = vals.iloc[-1] if len(vals) else 0
-        wy   = filtered.loc[filtered[scol].idxmin(), "시점"] if len(vals) else "-"
+        wy   = int(filtered.loc[filtered[scol].idxmin(), "시점"]) if len(vals) else "-"
         with col:
             st.metric(
                 label=f"{'🔴' if v < 0 else '🟢'} {g}",
@@ -298,7 +295,6 @@ elif page == "🌙 수면 & 건강인지율":
                 delta_color="inverse",
             )
 
-    # ── 건강인지율 차트 ──
     st.markdown('<div class="section-header">💪 주관적 건강인지율 증감 (%p)</div>', unsafe_allow_html=True)
     if gender_s:
         hc = filtered[["시점"] + [g_map[g][1] for g in gender_s]].set_index("시점")
@@ -310,7 +306,7 @@ elif page == "🌙 수면 & 건강인지율":
         hcol = g_map[g][1]
         vals = filtered[hcol].dropna()
         v    = vals.iloc[-1] if len(vals) else 0
-        py   = filtered.loc[filtered[hcol].idxmax(), "시점"] if len(vals) else "-"
+        py   = int(filtered.loc[filtered[hcol].idxmax(), "시점"]) if len(vals) else "-"
         with col:
             st.metric(
                 label=f"{'🔴' if v < 0 else '🟢'} {g}",
@@ -318,7 +314,6 @@ elif page == "🌙 수면 & 건강인지율":
                 delta=f"최고 {py}년",
             )
 
-    # ── 상관 분석 ──
     st.markdown('<div class="section-header">🔗 수면 vs 건강인지율 상관 분석</div>', unsafe_allow_html=True)
     scat = filtered[["수면_전체", "건강인지_전체"]].dropna()
     scat.columns = ["수면 증감(h)", "건강인지율 증감(%p)"]
@@ -327,7 +322,6 @@ elif page == "🌙 수면 & 건강인지율":
         corr = scat.corr().iloc[0, 1]
         st.markdown(f'<div class="insight-box">📐 피어슨 상관계수 <strong>{corr:.3f}</strong> — 수면시간과 건강인지율 사이에 {"<strong>정(+)의 상관관계</strong>가 있습니다 (수면↑ → 건강인지율↑)." if corr > 0 else "<strong>부(-)의 상관관계</strong>가 나타납니다."}</div>', unsafe_allow_html=True)
 
-    # ── 성별 비교 바 차트 ──
     st.markdown('<div class="section-header">👫 남학생 vs 여학생 비교 (최근 5개년)</div>', unsafe_allow_html=True)
     last5 = filtered.tail(5)[["시점", "수면_남", "수면_여", "건강인지_남", "건강인지_여"]].set_index("시점")
     ca, cb = st.columns(2)
@@ -358,7 +352,6 @@ elif page == "⏰ 필수생활시간":
     </div>
     """, unsafe_allow_html=True)
 
-    # 컬럼 suffix: 요일평균 + 성별 → {항목}_{g_key}, 요일별 → {항목}_{dt_key}
     suffix = g_key if dt_key == "계" else dt_key
 
     items_map = {
@@ -370,7 +363,6 @@ elif page == "⏰ 필수생활시간":
     }
     emojis = ["🕐", "😴", "🍽️", "💊", "🚿"]
 
-    # ── KPI 카드 ──
     latest = life_df.iloc[-1]
     first  = life_df.iloc[0]
     cols   = st.columns(5)
@@ -378,7 +370,7 @@ elif page == "⏰ 필수생활시간":
         v_now   = latest.get(key)
         v_first = first.get(key)
         delta_m = int(v_now) - int(v_first) if v_now is not None and v_first is not None else None
-        delta_s = f"{'+' if delta_m >= 0 else ''}{delta_m}분" if delta_m is not None else "-"
+        delta_s = f"{'+' if (delta_m or 0) >= 0 else ''}{delta_m}분" if delta_m is not None else "-"
         dcls    = "kpi-pos" if (delta_m or 0) >= 0 else "kpi-neg"
         with col:
             st.markdown(f"""<div class="kpi-card">
@@ -389,7 +381,6 @@ elif page == "⏰ 필수생활시간":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── 추이 라인 차트 ──
     label_disp = f"{daytype} / {'전체' if g_key == '계' else g_key}"
     st.markdown(f'<div class="section-header">📈 항목별 추이 — {label_disp} (분)</div>', unsafe_allow_html=True)
 
@@ -399,15 +390,13 @@ elif page == "⏰ 필수생활시간":
     trend_df.columns = list(valid.keys())
     st.line_chart(trend_df, use_container_width=True, height=300)
 
-    # ── 막대 비교 ──
     st.markdown('<div class="section-header">📊 항목별 절댓값 비교 (분)</div>', unsafe_allow_html=True)
     st.bar_chart(trend_df, use_container_width=True, height=270)
 
-    # ── 요일별 비교 (2024) ──
     st.markdown('<div class="section-header">📅 2024년 요일별 비교</div>', unsafe_allow_html=True)
-    row24 = life_df[life_df["연도"] == 2024].iloc[0]
-    day_map = {"요일평균": "계", "평일": "평일", "토요일": "토요일", "일요일": "일요일"}
-    sub_items = ["수면", "식사및간식", "개인위생및외모관리"]
+    row24    = life_df[life_df["연도"] == 2024].iloc[0]
+    day_map  = {"요일평균": "계", "평일": "평일", "토요일": "토요일", "일요일": "일요일"}
+    sub_items  = ["수면", "식사및간식", "개인위생및외모관리"]
     sub_labels = ["수면", "식사 및 간식", "개인위생·외모"]
     day_data = {}
     for dlabel, dkey in day_map.items():
@@ -415,12 +404,11 @@ elif page == "⏰ 필수생활시간":
     day_df = pd.DataFrame(day_data, index=sub_labels).T
     st.bar_chart(day_df, use_container_width=True, height=260)
 
-    sleep_wkday = row24.get("수면_평일", 0) or 0
-    sleep_sun   = row24.get("수면_일요일", 0) or 0
-    diff_s = int(sleep_sun) - int(sleep_wkday)
+    sleep_wkday = int(row24.get("수면_평일") or 0)
+    sleep_sun   = int(row24.get("수면_일요일") or 0)
+    diff_s = sleep_sun - sleep_wkday
     st.markdown(f'<div class="insight-box">🛋️ 2024년 일요일 수면은 평일 대비 <strong>{diff_s}분</strong> 더 깁니다. 주말 수면 보충 패턴이 뚜렷하게 나타납니다.</div>', unsafe_allow_html=True)
 
-    # ── 수면시간 연도별 성별 비교 ──
     st.markdown('<div class="section-header">👫 연도별 수면시간 성별 비교 (요일평균, 분)</div>', unsafe_allow_html=True)
     gender_comp = life_df[["연도", "수면_계", "수면_남", "수면_여"]].set_index("연도")
     gender_comp.columns = ["전체", "남자", "여자"]
