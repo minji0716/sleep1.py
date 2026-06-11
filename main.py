@@ -1,5 +1,13 @@
 import streamlit as st
 import pandas as pd
+import os
+
+# ─────────────────────────────────────────────
+# 파일 경로 — 항상 이 스크립트와 같은 폴더에서 찾음
+# ─────────────────────────────────────────────
+BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
+FILE_SLEEP = os.path.join(BASE_DIR, "youth_sleep_health.xlsx")
+FILE_LIFE  = os.path.join(BASE_DIR, "essential_time.xlsx")
 
 # ─────────────────────────────────────────────
 # 페이지 설정
@@ -43,7 +51,8 @@ st.markdown("""
     border: 1px solid rgba(255,255,255,0.10);
     border-radius: 16px; padding: 1.2rem 1.4rem; text-align: center;
 }
-.kpi-label { font-size:0.75rem; color:rgba(255,255,255,0.50); text-transform:uppercase; letter-spacing:.07em; margin-bottom:.4rem; }
+.kpi-label { font-size:0.75rem; color:rgba(255,255,255,0.50); text-transform:uppercase;
+             letter-spacing:.07em; margin-bottom:.4rem; }
 .kpi-value { font-size:1.9rem; font-weight:800; color:#a78bfa; line-height:1; }
 .kpi-pos   { color:#34d399; font-size:0.8rem; }
 .kpi-neg   { color:#f87171; font-size:0.8rem; }
@@ -72,10 +81,14 @@ st.markdown("""
 
 
 # ─────────────────────────────────────────────
-# 파일명 상수 (영문으로 rename 후 사용)
+# 파일 존재 여부 확인 (배포 디버그용)
 # ─────────────────────────────────────────────
-FILE_SLEEP = "youth_sleep_health.xlsx"
-FILE_LIFE  = "essential_time.xlsx"
+for fpath, fname in [(FILE_SLEEP, "youth_sleep_health.xlsx"), (FILE_LIFE, "essential_time.xlsx")]:
+    if not os.path.exists(fpath):
+        st.error(f"❌ 파일을 찾을 수 없습니다: `{fname}`\n\n"
+                 f"찾는 경로: `{fpath}`\n\n"
+                 f"레포 루트에 해당 파일이 있는지 확인해 주세요.")
+        st.stop()
 
 
 # ─────────────────────────────────────────────
@@ -127,8 +140,7 @@ def load_lifetime_data():
 def min_to_hhmm(m):
     if m is None or (isinstance(m, float) and pd.isna(m)):
         return "-"
-    m = int(m)
-    return f"{m // 60}시간 {m % 60:02d}분"
+    return f"{int(m) // 60}시간 {int(m) % 60:02d}분"
 
 
 sleep_df = load_sleep_data()
@@ -320,7 +332,7 @@ elif page == "🌙 수면 & 건강인지율":
     st.scatter_chart(scat, x="수면 증감(h)", y="건강인지율 증감(%p)", use_container_width=True, height=280)
     if len(scat) > 1:
         corr = scat.corr().iloc[0, 1]
-        st.markdown(f'<div class="insight-box">📐 피어슨 상관계수 <strong>{corr:.3f}</strong> — 수면시간과 건강인지율 사이에 {"<strong>정(+)의 상관관계</strong>가 있습니다 (수면↑ → 건강인지율↑)." if corr > 0 else "<strong>부(-)의 상관관계</strong>가 나타납니다."}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="insight-box">📐 피어슨 상관계수 <strong>{corr:.3f}</strong> — {"<strong>정(+)의 상관관계</strong> (수면↑ → 건강인지율↑)" if corr > 0 else "<strong>부(-)의 상관관계</strong>"}</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="section-header">👫 남학생 vs 여학생 비교 (최근 5개년)</div>', unsafe_allow_html=True)
     last5 = filtered.tail(5)[["시점", "수면_남", "수면_여", "건강인지_남", "건강인지_여"]].set_index("시점")
@@ -394,8 +406,8 @@ elif page == "⏰ 필수생활시간":
     st.bar_chart(trend_df, use_container_width=True, height=270)
 
     st.markdown('<div class="section-header">📅 2024년 요일별 비교</div>', unsafe_allow_html=True)
-    row24    = life_df[life_df["연도"] == 2024].iloc[0]
-    day_map  = {"요일평균": "계", "평일": "평일", "토요일": "토요일", "일요일": "일요일"}
+    row24      = life_df[life_df["연도"] == 2024].iloc[0]
+    day_map    = {"요일평균": "계", "평일": "평일", "토요일": "토요일", "일요일": "일요일"}
     sub_items  = ["수면", "식사및간식", "개인위생및외모관리"]
     sub_labels = ["수면", "식사 및 간식", "개인위생·외모"]
     day_data = {}
@@ -406,8 +418,7 @@ elif page == "⏰ 필수생활시간":
 
     sleep_wkday = int(row24.get("수면_평일") or 0)
     sleep_sun   = int(row24.get("수면_일요일") or 0)
-    diff_s = sleep_sun - sleep_wkday
-    st.markdown(f'<div class="insight-box">🛋️ 2024년 일요일 수면은 평일 대비 <strong>{diff_s}분</strong> 더 깁니다. 주말 수면 보충 패턴이 뚜렷하게 나타납니다.</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="insight-box">🛋️ 2024년 일요일 수면은 평일 대비 <strong>{sleep_sun - sleep_wkday}분</strong> 더 깁니다. 주말 수면 보충 패턴이 뚜렷하게 나타납니다.</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="section-header">👫 연도별 수면시간 성별 비교 (요일평균, 분)</div>', unsafe_allow_html=True)
     gender_comp = life_df[["연도", "수면_계", "수면_남", "수면_여"]].set_index("연도")
